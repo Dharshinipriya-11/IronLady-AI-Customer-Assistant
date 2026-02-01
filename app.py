@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 import json
 import os
@@ -6,34 +9,75 @@ import logging
 from datetime import datetime
 from config import *
 from groq import Groq
+import re
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'iron-lady-secret-key-2024'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///iron_lady_users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configure debug logging
+# Initialize extensions
+db = SQLAlchemy(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'info'
+
+# User Model
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    mobile = db.Column(db.String(20), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def __repr__(self):
+        return f'<User {self.name}>'
+
+# Chat Model
+class Chat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_message = db.Column(db.Text, nullable=False)
+    bot_response = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+    
+    # Relationship to User
+    user = db.relationship('User', backref=db.backref('chats', lazy=True))
+    
+    def __repr__(self):
+        return f'<Chat {self.id}: User {self.user_id}>'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+def validate_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_mobile(mobile):
+    pattern = r'^[\+]?[1-9]?\d{9,15}$'
+    return re.match(pattern, mobile) is not None
+
+# Configure logging
 def setup_logging():
-    # Create debug_logs directory if it doesn't exist
-    log_dir = os.path.join(os.path.dirname(__file__), 'debug_logs')
-    os.makedirs(log_dir, exist_ok=True)
-    
-    # Generate log filename with timestamp
-    log_filename = f"iron_lady_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-    log_filepath = os.path.join(log_dir, log_filename)
-    
-    # Configure logging to both file and console
     logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[
-            logging.FileHandler(log_filepath, encoding='utf-8'),
-            logging.StreamHandler()  # This prints to console
-        ]
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
-    
-    logger = logging.getLogger(__name__)
-    logger.info(f"🚀 Iron Lady AI Customer Assistant - Debug logging initialized")
-    logger.info(f"📁 Log file: {log_filepath}")
-    return logger
+    return logging.getLogger(__name__)
 
 # Initialize logging
 logger = setup_logging()
@@ -104,17 +148,15 @@ BUSINESS WAR TACTICS METHODOLOGY:
 """
 
 # Initialize Groq client
-logger.info("🔧 Initializing Groq client configuration")
+logger.info("Initializing Groq client configuration")
 groq_client = None
 try:
     if ACTIVE_LLM_PROVIDER == "groq" and GROQ_API_KEY != "your_groq_api_key_here":
-        logger.info(f"🔑 Initializing Groq client with API key: {GROQ_API_KEY[:10]}...***")
         groq_client = Groq(api_key=GROQ_API_KEY)
-        logger.info("✅ Groq client initialized successfully")
+        logger.info("Groq client initialized successfully")
         
-        # Test the connection with Iron Lady context
+        # Test the connection
         try:
-            logger.debug("🧪 Testing Groq API connection with sample request")
             test_response = groq_client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": f"You are an AI assistant trained specifically for Iron Lady. Use this training data: {COMPANY_INFO[:200]}..."},
@@ -123,29 +165,25 @@ try:
                 model=GROQ_MODEL,
                 max_tokens=50
             )
-            logger.info(f"🧪 API Test Response: {test_response.choices[0].message.content}")
+            logger.info(f"API Test successful: {test_response.choices[0].message.content}")
         except Exception as test_error:
-            logger.error(f"❌ API Test Failed: {test_error}")
+            logger.error(f"API Test failed: {test_error}")
         
     else:
-        logger.warning(f"⚠️  Groq not active - Provider: {ACTIVE_LLM_PROVIDER}, Key valid: {GROQ_API_KEY != 'your_groq_api_key_here'}")
+        logger.warning(f"Groq not active - Provider: {ACTIVE_LLM_PROVIDER}")
 except Exception as e:
-    logger.error(f"❌ Error initializing Groq client: {e}")
-    print(f"❌ Failed to initialize Groq client: {e}")
+    logger.error(f"Error initializing Groq client: {e}")
     groq_client = None
 
 def call_groq_api(user_question):
     """Call Groq API for LLM response using official client"""
-    logger.info(f"🚀 Starting Groq API call for user question: {user_question[:50]}...")
+    logger.info(f"Starting Groq API call for: {user_question[:50]}...")
     try:
         if not groq_client:
-            logger.error("❌ Groq client not initialized")
+            logger.error("Groq client not initialized")
             return None
             
-        logger.debug(f"🔑 Using Groq API Key: {GROQ_API_KEY[:10]}...***")
-        logger.debug(f"🤖 Using Model: {GROQ_MODEL}")
-        
-        # Create a comprehensive system prompt with company training data
+        # Create system prompt with company training data
         system_prompt = f"""You are an AI assistant specifically trained for Iron Lady, India's leading Leadership Platform for women. 
 
 TRAINING DATA - Iron Lady Company Information:
@@ -163,9 +201,7 @@ INSTRUCTIONS:
 
         user_prompt = f"User Question: {user_question}\n\nProvide a helpful response based on your Iron Lady training:"
         
-        logger.info("📤 Sending request to Groq API...")
-        logger.debug(f"📝 System prompt length: {len(system_prompt)} characters")
-        logger.debug(f"📝 User prompt: {user_prompt[:100]}...")
+        logger.info("Sending request to Groq API...")
         
         chat_completion = groq_client.chat.completions.create(
             messages=[
@@ -178,25 +214,20 @@ INSTRUCTIONS:
         )
         
         response_text = chat_completion.choices[0].message.content
-        logger.info(f"📥 Received response length: {len(response_text)} characters")
-        logger.debug(f"📥 Response preview: {response_text[:100]}...")
+        logger.info(f"Response received ({len(response_text)} chars)")
         return response_text
         
     except Exception as e:
-        logger.error(f"❌ Groq API error: {str(e)}")
-        logger.error(f"❌ Error type: {type(e)}")
-        import traceback
-        logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+        logger.error(f"Groq API error: {str(e)}")
         return None
 
 def call_huggingface_api(user_question):
     """Call Hugging Face API for LLM response with Iron Lady context"""
-    logger.info(f"🤗 Starting Hugging Face API call for user question: {user_question[:50]}...")
+    logger.info(f"Starting Hugging Face API call for: {user_question[:50]}...")
     try:
         headers = {"Authorization": f"Bearer {HUGGING_FACE_API_KEY}"}
-        logger.debug(f"🔑 Using HF API Key: {HUGGING_FACE_API_KEY[:10]}...***")
         
-        # Enhanced prompt with comprehensive Iron Lady training data
+        # Enhanced prompt with Iron Lady training data
         prompt = f"""Iron Lady AI Assistant Training Data:
 {COMPANY_INFO}
 
@@ -205,41 +236,33 @@ User Question: {user_question}
 As Iron Lady's AI assistant, provide a helpful response based on the training data above. Focus on specific programs, achievements, and how Iron Lady can help advance the user's career:"""
         
         data = {"inputs": prompt, "parameters": {"max_new_tokens": 300, "temperature": 0.7, "return_full_text": False}}
-        logger.debug(f"📝 Prompt length: {len(prompt)} characters")
-        logger.info("📤 Sending request to Hugging Face API...")
+        logger.info("Sending request to Hugging Face API...")
         
         response = requests.post("https://api-inference.huggingface.co/models/microsoft/DialoGPT-large",
                                headers=headers, json=data, timeout=15)
         
-        logger.debug(f"🌐 HF API Response Status: {response.status_code}")
         if response.status_code == 200:
             result = response.json()
-            logger.debug(f"📊 HF API Result type: {type(result)}")
             if isinstance(result, list) and result:
                 generated_text = result[0].get("generated_text", "").strip()
-                logger.info(f"📥 HuggingFace response length: {len(generated_text)} characters")
-                logger.debug(f"📥 HuggingFace response preview: {generated_text[:100]}...")
+                logger.info(f"HuggingFace response received ({len(generated_text)} chars)")
                 return generated_text if generated_text else None
         
-        logger.error(f"❌ HuggingFace API failed with status: {response.status_code}")
-        logger.error(f"❌ Response content: {response.text[:200]}...")
+        logger.error(f"HuggingFace API failed with status: {response.status_code}")
         return None
         
     except Exception as e:
-        logger.error(f"❌ HuggingFace API error: {e}")
-        import traceback
-        logger.error(f"❌ HF Full traceback: {traceback.format_exc()}")
+        logger.error(f"HuggingFace API error: {e}")
         return None
 
 def call_openrouter_api(user_question):
     """Call OpenRouter API for LLM response"""
-    logger.info(f"🚀 Starting OpenRouter API call for user question: {user_question[:50]}...")
+    logger.info(f"Starting OpenRouter API call for: {user_question[:50]}...")
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json"
         }
-        logger.debug(f"🔑 Using OpenRouter API Key: {OPENROUTER_API_KEY[:10]}...***")
         
         prompt = f"""You are an AI assistant for Iron Lady, India's leading Leadership Platform for women.
 Company Info: {COMPANY_INFO}
@@ -252,24 +275,21 @@ Provide a helpful response about Iron Lady."""
             "max_tokens": 400
         }
         
-        logger.info("📤 Sending request to OpenRouter API...")
+        logger.info("Sending request to OpenRouter API...")
         response = requests.post("https://openrouter.ai/api/v1/chat/completions",
                                headers=headers, json=data, timeout=10)
         
-        logger.debug(f"🌐 OpenRouter API Response Status: {response.status_code}")
         if response.status_code == 200:
             result = response.json()
             response_text = result["choices"][0]["message"]["content"]
-            logger.info(f"📥 OpenRouter response length: {len(response_text)} characters")
+            logger.info(f"OpenRouter response received ({len(response_text)} chars)")
             return response_text
         
-        logger.error(f"❌ OpenRouter API failed with status: {response.status_code}")
+        logger.error(f"OpenRouter API failed with status: {response.status_code}")
         return None
         
     except Exception as e:
-        logger.error(f"❌ OpenRouter API error: {e}")
-        import traceback
-        logger.error(f"❌ OpenRouter Full traceback: {traceback.format_exc()}")
+        logger.error(f"OpenRouter API error: {e}")
         return None
 
 def call_together_api(user_question):
@@ -301,7 +321,7 @@ Assistant:"""
         return None
         
     except Exception as e:
-        print(f"Together API error: {e}")
+        logger.error(f"Together API error: {e}")
         return None
 
 def get_llm_response(user_question):
@@ -484,11 +504,14 @@ What specific aspect of Iron Lady would you like to know more about?"""
 
 @app.route("/", methods=["GET"])
 def home():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
     logger.info("🏠 Home page GET request received")
     logger.debug(f"🌐 User accessing main page at {datetime.now()}")
-    return render_template("index.html")
+    return render_template("auth/login.html")
 
 @app.route("/chat", methods=["POST"])
+@login_required
 def chat():
     """API endpoint for AJAX chat requests"""
     from flask import jsonify
@@ -498,7 +521,7 @@ def chat():
     user_input = raw_input.strip() if raw_input else ""
     
     # Detailed logging for debugging
-    print(f"📝 AJAX Chat Request")
+    print(f"📝 AJAX Chat Request from user {current_user.name} (ID: {current_user.id})")
     print(f"📝 Raw input: '{raw_input}'")
     print(f"📝 Cleaned input: '{user_input}'")
     print(f"📝 Input length: {len(user_input)} characters")
@@ -514,6 +537,21 @@ def chat():
         if response:
             print(f"📤 Generated response length: {len(response)} characters")
             print(f"📤 Response preview: {response[:100]}...")
+            
+            # Save chat to database
+            try:
+                chat_record = Chat(
+                    user_id=current_user.id,
+                    user_message=user_input,
+                    bot_response=response
+                )
+                db.session.add(chat_record)
+                db.session.commit()
+                print(f"💾 Chat saved to database with ID: {chat_record.id}")
+            except Exception as e:
+                print(f"❌ Error saving chat to database: {e}")
+                db.session.rollback()
+            
             return jsonify({
                 'success': True,
                 'response': response,
@@ -521,9 +559,24 @@ def chat():
             })
         else:
             print("❌ No response generated, using fallback")
+            fallback_response = "I apologize, but I'm having trouble generating a response right now. Please try asking about Iron Lady's leadership programs, community, or how we can help advance your career."
+            
+            # Save failed chat attempt to database
+            try:
+                chat_record = Chat(
+                    user_id=current_user.id,
+                    user_message=user_input,
+                    bot_response=fallback_response
+                )
+                db.session.add(chat_record)
+                db.session.commit()
+            except Exception as e:
+                print(f"❌ Error saving fallback chat to database: {e}")
+                db.session.rollback()
+            
             return jsonify({
                 'success': False,
-                'response': "I apologize, but I'm having trouble generating a response right now. Please try asking about Iron Lady's leadership programs, community, or how we can help advance your career.",
+                'response': fallback_response,
                 'error': 'No LLM response generated'
             })
     else:
@@ -573,7 +626,361 @@ def home_post():
     
     return render_template("index.html", response=response, user_input=user_input)
 
+# Authentication Routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        identifier = request.form.get('identifier', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        if not identifier or not password:
+            flash('Please enter both identifier and password.', 'error')
+            return render_template('auth/login.html')
+        
+        # Try to find user by email or mobile
+        user = None
+        if validate_email(identifier):
+            user = User.query.filter_by(email=identifier).first()
+        elif validate_mobile(identifier):
+            user = User.query.filter_by(mobile=identifier).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            flash(f'Welcome back, {user.name}!', 'success')
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+        else:
+            flash('Invalid credentials. Please try again.', 'error')
+    
+    return render_template('auth/login.html')
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        mobile = request.form.get('mobile', '').strip()
+        password = request.form.get('password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        
+        # Validation
+        if not all([name, email, mobile, password, confirm_password]):
+            flash('All fields are required.', 'error')
+            return render_template('auth/register.html')
+        
+        if not validate_email(email):
+            flash('Please enter a valid email address.', 'error')
+            return render_template('auth/register.html')
+        
+        if not validate_mobile(mobile):
+            flash('Please enter a valid mobile number.', 'error')
+            return render_template('auth/register.html')
+        
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('auth/register.html')
+        
+        if len(password) < 6:
+            flash('Password must be at least 6 characters long.', 'error')
+            return render_template('auth/register.html')
+        
+        # Check if user already exists
+        existing_email = User.query.filter_by(email=email).first()
+        existing_mobile = User.query.filter_by(mobile=mobile).first()
+        
+        if existing_email:
+            flash('An account with this email already exists.', 'error')
+            return render_template('auth/register.html')
+        
+        if existing_mobile:
+            flash('An account with this mobile number already exists.', 'error')
+            return render_template('auth/register.html')
+        
+        # Create new user
+        user = User(
+            name=name,
+            email=email,
+            mobile=mobile
+        )
+        user.set_password(password)
+        
+        try:
+            db.session.add(user)
+            db.session.commit()
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Registration failed. Please try again.', 'error')
+            logger.error(f"Registration error: {e}")
+    
+    return render_template('auth/register.html')
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out successfully.', 'info')
+    return redirect(url_for('home'))
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    return render_template('dashboard.html', user=current_user)
+
+# Admin Routes
+@app.route("/admin")
+@login_required
+def admin_panel():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('admin/users.html', users=users)
+
+@app.route("/admin/user/<int:user_id>/edit", methods=["GET", "POST"])
+@login_required
+def admin_edit_user(user_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    if request.method == "POST":
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        mobile = request.form.get('mobile', '').strip()
+        is_admin = request.form.get('is_admin') == 'on'
+        
+        if not all([name, email, mobile]):
+            flash('Name, email, and mobile are required.', 'error')
+            return render_template('admin/edit_user.html', user=user)
+        
+        if not validate_email(email):
+            flash('Please enter a valid email address.', 'error')
+            return render_template('admin/edit_user.html', user=user)
+        
+        if not validate_mobile(mobile):
+            flash('Please enter a valid mobile number.', 'error')
+            return render_template('admin/edit_user.html', user=user)
+        
+        # Check for existing users with same email/mobile (excluding current user)
+        existing_email = User.query.filter(User.email == email, User.id != user_id).first()
+        existing_mobile = User.query.filter(User.mobile == mobile, User.id != user_id).first()
+        
+        if existing_email:
+            flash('Another user with this email already exists.', 'error')
+            return render_template('admin/edit_user.html', user=user)
+        
+        if existing_mobile:
+            flash('Another user with this mobile number already exists.', 'error')
+            return render_template('admin/edit_user.html', user=user)
+        
+        try:
+            user.name = name
+            user.email = email
+            user.mobile = mobile
+            user.is_admin = is_admin
+            
+            db.session.commit()
+            flash(f'User {user.name} updated successfully.', 'success')
+            return redirect(url_for('admin_panel'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Failed to update user. Please try again.', 'error')
+            logger.error(f"User update error: {e}")
+    
+    return render_template('admin/edit_user.html', user=user)
+
+@app.route("/admin/user/<int:user_id>/delete", methods=["POST"])
+@login_required
+def admin_delete_user(user_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    
+    if user.id == current_user.id:
+        flash('You cannot delete your own account.', 'error')
+        return redirect(url_for('admin_panel'))
+    
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'User {user.name} deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to delete user. Please try again.', 'error')
+        logger.error(f"User delete error: {e}")
+    
+    return redirect(url_for('admin_panel'))
+
+@app.route("/admin/create_admin", methods=["POST"])
+@login_required
+def create_admin():
+    # This is a special route to create the first admin user
+    if User.query.filter_by(is_admin=True).first():
+        flash('Admin already exists.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if current_user:
+        current_user.is_admin = True
+        db.session.commit()
+        flash('You are now an admin!', 'success')
+    
+    return redirect(url_for('admin_panel'))
+
+# Admin Chat Management Routes
+@app.route("/admin/chats")
+@login_required
+def admin_chats():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = 20  # Number of chats per page
+    
+    # Get all chats with pagination, ordered by most recent first
+    chats_query = Chat.query.filter_by(is_deleted=False).order_by(Chat.created_at.desc())
+    chats_pagination = chats_query.paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('admin/chats.html', 
+                         chats=chats_pagination.items,
+                         pagination=chats_pagination)
+
+@app.route("/admin/user/<int:user_id>/chats")
+@login_required
+def admin_user_chats(user_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    # Get chats for specific user with pagination
+    chats_query = Chat.query.filter_by(user_id=user_id, is_deleted=False).order_by(Chat.created_at.desc())
+    chats_pagination = chats_query.paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    return render_template('admin/user_chats.html', 
+                         user=user,
+                         chats=chats_pagination.items,
+                         pagination=chats_pagination)
+
+@app.route("/admin/chat/<int:chat_id>/edit", methods=["GET", "POST"])
+@login_required
+def admin_edit_chat(chat_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    chat = Chat.query.get_or_404(chat_id)
+    
+    if request.method == "POST":
+        user_message = request.form.get('user_message', '').strip()
+        bot_response = request.form.get('bot_response', '').strip()
+        
+        if not user_message or not bot_response:
+            flash('Both user message and bot response are required.', 'error')
+            return render_template('admin/edit_chat.html', chat=chat)
+        
+        try:
+            chat.user_message = user_message
+            chat.bot_response = bot_response
+            
+            db.session.commit()
+            flash(f'Chat message updated successfully.', 'success')
+            return redirect(url_for('admin_user_chats', user_id=chat.user_id))
+        except Exception as e:
+            db.session.rollback()
+            flash('Failed to update chat message. Please try again.', 'error')
+            logger.error(f"Chat update error: {e}")
+    
+    return render_template('admin/edit_chat.html', chat=chat)
+
+@app.route("/admin/chat/<int:chat_id>/delete", methods=["POST"])
+@login_required
+def admin_delete_chat(chat_id):
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    chat = Chat.query.get_or_404(chat_id)
+    user_id = chat.user_id  # Store user_id before deletion
+    
+    try:
+        # Soft delete - mark as deleted instead of actual deletion
+        chat.is_deleted = True
+        db.session.commit()
+        flash(f'Chat message deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to delete chat message. Please try again.', 'error')
+        logger.error(f"Chat delete error: {e}")
+    
+    return redirect(url_for('admin_user_chats', user_id=user_id))
+
+@app.route("/admin/chats/stats")
+@login_required
+def admin_chat_stats():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Calculate chat statistics
+    total_chats = Chat.query.filter_by(is_deleted=False).count()
+    total_users_with_chats = db.session.query(Chat.user_id).filter_by(is_deleted=False).distinct().count()
+    
+    # Most active users (top 10)
+    most_active_users = db.session.query(
+        User.name, User.email, db.func.count(Chat.id).label('chat_count')
+    ).join(Chat).filter(Chat.is_deleted == False).group_by(User.id).order_by(
+        db.func.count(Chat.id).desc()
+    ).limit(10).all()
+    
+    # Recent activity (last 7 days)
+    from datetime import timedelta
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    recent_chats = Chat.query.filter(
+        Chat.created_at >= week_ago, Chat.is_deleted == False
+    ).count()
+    
+    stats = {
+        'total_chats': total_chats,
+        'total_users_with_chats': total_users_with_chats,
+        'recent_chats': recent_chats,
+        'most_active_users': most_active_users
+    }
+    
+    return render_template('admin/chat_stats.html', stats=stats)
+
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
+        
+        # Create admin user if no admin exists
+        admin = User.query.filter_by(is_admin=True).first()
+        if not admin:
+            admin_user = User(
+                name="Admin",
+                email="admin@ironlady.com",
+                mobile="9999999999",
+                is_admin=True
+            )
+            admin_user.set_password("admin123")
+            db.session.add(admin_user)
+            db.session.commit()
+            logger.info("🔑 Default admin user created: admin@ironlady.com / admin123")
+    
     logger.info("🚀 Iron Lady AI Assistant starting...")
     logger.info(f"📊 Active LLM Provider: {ACTIVE_LLM_PROVIDER}")
     logger.info(f"🌐 Visit: http://127.0.0.1:5000")

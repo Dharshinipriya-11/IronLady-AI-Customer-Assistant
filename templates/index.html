@@ -239,6 +239,7 @@
             border-left: 5px solid #e73c7e;
             animation: fadeInUp 0.5s ease-out;
             line-height: 1.6;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
         }
 
         .response-container strong {
@@ -382,13 +383,11 @@
                     
                     if (data.success) {
                         // Display the AI response with bold formatting for **text**
-                        console.log('Raw response:', data.response); // Debug log
                         let formattedResponse = data.response
                             // Handle **text** patterns with more robust regex
                             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                             // Handle line breaks
                             .replace(/\n/g, '<br>');
-                        console.log('Formatted response:', formattedResponse); // Debug log
                         responseText.innerHTML = formattedResponse;
                     } else {
                         responseText.textContent = data.response || 'Sorry, I encountered an error processing your request.';
