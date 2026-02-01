@@ -651,6 +651,10 @@ def login():
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         else:
             flash('Invalid credentials. Please try again.', 'error')
+    else:
+        # Clear any existing flash messages when accessing login page via GET
+        # This ensures fresh start on page refresh or direct navigation
+        session.pop('_flashes', None)
     
     return render_template('auth/login.html')
 
