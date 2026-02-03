@@ -1,10 +1,5 @@
 # Iron Lady AI Customer Assistant
 
-
-DEMO LINK TASK 1: https://drive.google.com/file/d/1Ojgd_J-CJHyZlDfRW57K6G4aM_WQ-pj4/view?usp=drivesdk
-DEMO LINK TASK 2: https://drive.google.com/file/d/1JGPDZEVNpO0q9BzmARhz72odd_nVxAom/view?usp=drivesdk
-
-
 A comprehensive web application for Iron Lady, India's leading Leadership Platform for women, featuring an intelligent AI assistant, user authentication, admin management, and modern responsive design.
 
 ## ✨ Features
