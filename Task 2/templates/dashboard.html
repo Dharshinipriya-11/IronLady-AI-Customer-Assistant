@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Iron Lady AI Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e73c7e;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .welcome-text {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #666;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            background: #e73c7e;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .admin-link {
+            background: #ffa726 !important;
+            color: white !important;
+        }
+
+        .admin-link:hover {
+            background: #ff9800 !important;
+        }
+
+        .logout-btn {
+            background: #f44336 !important;
+            color: white !important;
+        }
+
+        .logout-btn:hover {
+            background: #d32f2f !important;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .welcome-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .welcome-section h1 {
+            color: #e73c7e;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .welcome-section p {
+            color: #666;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+
+        .chat-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #e73c7e, #ee7752);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h2 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            text-align: right;
+        }
+
+        .bot-message {
+            text-align: left;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            line-height: 1.6;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+        }
+
+        .user-message .message-bubble {
+            background: linear-gradient(135deg, #e73c7e, #ee7752);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            resize: none;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: #e73c7e;
+            box-shadow: 0 0 0 3px rgba(231, 60, 126, 0.1);
+        }
+
+        .send-btn {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #e73c7e, #ee7752);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 100px;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(231, 60, 126, 0.4);
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .typing-indicator .message-bubble {
+            background: #f0f0f0;
+            color: #666;
+            font-style: italic;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .alert {
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #363;
+            border: 1px solid #cfc;
+        }
+
+        .alert-info {
+            background: #eef;
+            color: #336;
+            border: 1px solid #ccf;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .welcome-section h1 {
+                font-size: 2rem;
+            }
+
+            .message-bubble {
+                max-width: 90%;
+            }
+
+            .input-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .chat-container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='iron-lady-logo.png') }}" alt="Iron Lady Logo" style="height: 40px; width: auto;">
+            </div>
+            <div class="user-info">
+                <div class="welcome-text">Welcome, {{ user.name }}!</div>
+                <div class="nav-links">
+                    {% if user.is_admin %}
+                        <a href="{{ url_for('admin_panel') }}" class="admin-link">Admin Panel</a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="welcome-section">
+            <h1>Welcome to Iron Lady AI Assistant</h1>
+            <p>Ask me anything about Iron Lady's leadership programs, community, and how we can help advance your career!</p>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>Chat with Iron Lady AI</h2>
+                <p>Get personalized guidance on leadership and career advancement</p>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    <div class="message-bubble">Hello {{ user.name }}! 👋 I'm your Iron Lady AI Assistant. I can help you learn about our leadership programs, community, success stories, and how to advance your career. What would you like to know?</div>
+                </div>
+            </div>
+            
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="message-bubble">AI is typing...</div>
+            </div>
+            
+            <div class="chat-input-area">
+                <form id="chatForm" class="input-group">
+                    <input type="text" id="messageInput" placeholder="Ask me about Iron Lady programs, community, or career guidance..." required>
+                    <button type="submit" class="send-btn" id="sendBtn">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chatForm');
+        const messageInput = document.getElementById('messageInput');
+        const chatMessages = document.getElementById('chatMessages');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const sendBtn = document.getElementById('sendBtn');
+
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            
+            // Clear input and disable send button
+            messageInput.value = '';
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            // Show typing indicator
+            typingIndicator.style.display = 'block';
+            scrollToBottom();
+            
+            try {
+                // Send message to backend
+                const formData = new FormData();
+                formData.append('message', message);
+                
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                
+                if (data.success) {
+                    addMessage(data.response, 'bot');
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+                }
+                
+            } catch (error) {
+                typingIndicator.style.display = 'none';
+                addMessage('Sorry, there was a network error. Please try again.', 'bot');
+                console.error('Chat error:', error);
+            }
+            
+            // Re-enable send button
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+            messageInput.focus();
+        });
+
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            
+            // Format the text to handle line breaks and bold formatting
+            let formattedText = text
+                // Handle **text** patterns for bold formatting
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                // Handle line breaks
+                .replace(/\n/g, '<br>');
+            
+            bubbleDiv.innerHTML = formattedText;
+            
+            messageDiv.appendChild(bubbleDiv);
+            chatMessages.appendChild(messageDiv);
+            
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Allow Enter key to send message
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Focus on input when page loads
+        window.addEventListener('load', function() {
+            messageInput.focus();
+        });
+    </script>
+</body>
+</html>

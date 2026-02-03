@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Chat #{{ chat.id }} - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e73c7e;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .admin-badge {
+            background: #ffa726;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #666;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            background: #e73c7e;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .edit-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            color: #e73c7e;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .page-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .chat-info-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .chat-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chat-info-title {
+            color: #333;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .chat-meta {
+            display: flex;
+            gap: 20px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: #e73c7e;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-details h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-details p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            font-size: 16px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #e73c7e;
+            box-shadow: 0 0 0 3px rgba(231, 60, 126, 0.1);
+        }
+
+        .user-message-input {
+            background: #e3f2fd !important;
+            border-color: #2196f3 !important;
+        }
+
+        .user-message-input:focus {
+            border-color: #1976d2 !important;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1) !important;
+        }
+
+        .bot-message-input {
+            background: #f3e5f5 !important;
+            border-color: #9c27b0 !important;
+        }
+
+        .bot-message-input:focus {
+            border-color: #7b1fa2 !important;
+            box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1) !important;
+        }
+
+        .message-preview {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .message-label {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        .character-count {
+            text-align: right;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: flex-end;
+            margin-top: 40px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e73c7e, #ee7752);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(231, 60, 126, 0.4);
+        }
+
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+            transform: translateY(-2px);
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #363;
+            border: 1px solid #cfc;
+        }
+
+        .alert-info {
+            background: #eef;
+            color: #336;
+            border: 1px solid #ccf;
+        }
+
+        .required {
+            color: #f44336;
+        }
+
+        .helper-text {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .page-header h1 {
+                font-size: 2rem;
+            }
+
+            .chat-info-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .chat-meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .user-info {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .button-group {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='iron-lady-logo.png') }}" alt="Iron Lady Logo" style="height: 40px; width: auto;">
+                <span class="admin-badge">ADMIN</span>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('admin_user_chats', user_id=chat.user_id) }}">Back to User Chats</a>
+                <a href="{{ url_for('admin_panel') }}">Users</a>
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('logout') }}" style="background: #f44336; color: white;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="edit-container">
+            <div class="page-header">
+                <h1>Edit Chat Message</h1>
+                <p>Modify chat conversation content</p>
+            </div>
+
+            <div class="chat-info-card">
+                <div class="chat-info-header">
+                    <div class="chat-info-title">Chat #{{ chat.id }}</div>
+                    <div class="chat-meta">
+                        <div><strong>Date:</strong> {{ chat.created_at.strftime('%B %d, %Y at %I:%M %p') }}</div>
+                    </div>
+                </div>
+
+                <div class="user-info">
+                    <div class="user-avatar">{{ chat.user.name[0].upper() }}</div>
+                    <div class="user-details">
+                        <h3>{{ chat.user.name }}</h3>
+                        <p>{{ chat.user.email }} • {{ chat.user.mobile }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('admin_edit_chat', chat_id=chat.id) }}">
+                <div class="form-group">
+                    <label for="user_message">User Question <span class="required">*</span></label>
+                    <textarea id="user_message" name="user_message" class="user-message-input" placeholder="Enter the user's question or message..." required>{{ chat.user_message }}</textarea>
+                    <div class="character-count">
+                        <span id="user_char_count">{{ chat.user_message|length }}</span> characters
+                    </div>
+                    <div class="helper-text">This is what the user asked or said in the conversation.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bot_response">AI Response <span class="required">*</span></label>
+                    <textarea id="bot_response" name="bot_response" class="bot-message-input" placeholder="Enter the AI's response..." required>{{ chat.bot_response }}</textarea>
+                    <div class="character-count">
+                        <span id="bot_char_count">{{ chat.bot_response|length }}</span> characters
+                    </div>
+                    <div class="helper-text">This is how the AI responded to the user's message.</div>
+                </div>
+
+                <div class="button-group">
+                    <a href="{{ url_for('admin_user_chats', user_id=chat.user_id) }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Update Chat</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Character counter
+        document.addEventListener('DOMContentLoaded', function() {
+            const userTextarea = document.getElementById('user_message');
+            const botTextarea = document.getElementById('bot_response');
+            const userCharCount = document.getElementById('user_char_count');
+            const botCharCount = document.getElementById('bot_char_count');
+
+            function updateCharCount(textarea, counter) {
+                counter.textContent = textarea.value.length;
+            }
+
+            userTextarea.addEventListener('input', function() {
+                updateCharCount(userTextarea, userCharCount);
+            });
+
+            botTextarea.addEventListener('input', function() {
+                updateCharCount(botTextarea, botCharCount);
+            });
+
+            // Auto-resize textareas
+            function autoResize(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
+
+            userTextarea.addEventListener('input', function() {
+                autoResize(this);
+            });
+
+            botTextarea.addEventListener('input', function() {
+                autoResize(this);
+            });
+
+            // Initial resize
+            autoResize(userTextarea);
+            autoResize(botTextarea);
+
+            // Auto-hide flash messages
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.remove(), 300);
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>

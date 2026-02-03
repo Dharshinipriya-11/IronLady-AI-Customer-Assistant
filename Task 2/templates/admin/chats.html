@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Management - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e73c7e;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .admin-badge {
+            background: #ffa726;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            padding: 10px 20px;
+            text-decoration: none;
+            color: #666;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            background: #e73c7e;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .admin-header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .admin-header h1 {
+            color: #e73c7e;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .admin-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .chats-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .chats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .chats-header h2 {
+            color: #333;
+            font-size: 1.8rem;
+        }
+
+        .chats-count {
+            background: #e73c7e;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+
+        .chat-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .chat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: #e73c7e;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-details h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-details p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .chat-meta {
+            text-align: right;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .chat-content {
+            margin: 15px 0;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .user-message {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+        }
+
+        .bot-message {
+            background: #f3e5f5;
+            border-left: 4px solid #9c27b0;
+        }
+
+        .message-label {
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #666;
+        }
+
+        .message-text {
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-view {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-view:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #363;
+            border: 1px solid #cfc;
+        }
+
+        .alert-info {
+            background: #eef;
+            color: #336;
+            border: 1px solid #ccf;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .pagination a, .pagination span {
+            padding: 10px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .pagination a:hover {
+            background: #e73c7e;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .pagination .current {
+            background: #e73c7e;
+            color: white;
+            border-color: #e73c7e;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .admin-header h1 {
+                font-size: 2rem;
+            }
+
+            .chats-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .chat-header-info {
+                flex-direction: column;
+                gap: 15px;
+                text-align: left;
+            }
+
+            .user-info {
+                justify-content: center;
+            }
+
+            .chat-meta {
+                text-align: center;
+            }
+
+            .chat-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="{{ url_for('static', filename='iron-lady-logo.png') }}" alt="Iron Lady Logo" style="height: 40px; width: auto;">
+                <span class="admin-badge">ADMIN</span>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('admin_panel') }}">Users</a>
+                <a href="{{ url_for('admin_chat_stats') }}">Chat Stats</a>
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('logout') }}" style="background: #f44336; color: white;">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="admin-header">
+            <h1>Chat Management</h1>
+            <p>View and manage all user conversations</p>
+        </div>
+
+        <div class="chats-container">
+            <div class="chats-header">
+                <h2>All Conversations</h2>
+                <div class="chats-count">{{ chats|length }} Chats</div>
+            </div>
+
+            {% if chats %}
+                {% for chat in chats %}
+                <div class="chat-item">
+                    <div class="chat-header-info">
+                        <div class="user-info">
+                            <div class="user-avatar">{{ chat.user.name[0].upper() }}</div>
+                            <div class="user-details">
+                                <h4>{{ chat.user.name }}</h4>
+                                <p>{{ chat.user.email }}</p>
+                            </div>
+                        </div>
+                        <div class="chat-meta">
+                            <div><strong>Chat ID:</strong> #{{ chat.id }}</div>
+                            <div><strong>Date:</strong> {{ chat.created_at.strftime('%b %d, %Y at %I:%M %p') }}</div>
+                        </div>
+                    </div>
+
+                    <div class="chat-content">
+                        <div class="message user-message">
+                            <div class="message-label">User Question</div>
+                            <div class="message-text">{{ chat.user_message[:150] }}{% if chat.user_message|length > 150 %}...{% endif %}</div>
+                        </div>
+                        <div class="message bot-message">
+                            <div class="message-label">AI Response</div>
+                            <div class="message-text">{{ chat.bot_response[:150] }}{% if chat.bot_response|length > 150 %}...{% endif %}</div>
+                        </div>
+                    </div>
+
+                    <div class="chat-actions">
+                        <a href="{{ url_for('admin_user_chats', user_id=chat.user_id) }}" class="btn btn-view">View User's All Chats</a>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if pagination.pages > 1 %}
+                <div class="pagination">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('admin_chats', page=pagination.prev_num) }}">&laquo; Previous</a>
+                    {% endif %}
+                    
+                    {% for page_num in pagination.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != pagination.page %}
+                                <a href="{{ url_for('admin_chats', page=page_num) }}">{{ page_num }}</a>
+                            {% else %}
+                                <span class="current">{{ page_num }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span>...</span>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('admin_chats', page=pagination.next_num) }}">Next &raquo;</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No Chat Messages Found</h3>
+                    <p>No users have started conversations yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Auto-hide flash messages after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.remove(), 300);
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>
